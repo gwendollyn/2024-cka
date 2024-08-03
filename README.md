@@ -127,3 +127,162 @@ Welcome to Taroko Kadm Console v24.07 (task,kubectl,talosctl,mc,rclone,s3fs,Juic
 **
 kubectl run e1 --image=registry.k8s.io/echoserver:1.10 --port 8080
 ```
+## 第三週 07/20
+
+## 第四週 08/03
+
+```
+echo $'apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+  - name: myapp-container
+    image: quay.io/cloudwalker/alp.base
+    command: [\'sh\', \'-c\', \'echo The Pod is running && sleep 10\']
+  restartPolicy: Never' > ~/myLifecyclePod-1.yaml
+```
+
+`kubectl describe pod myapp-pod | grep 'Status:'`
+Status:           Failed
+```
+echo $'apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+spec:
+  containers:
+  - name: myapp-container
+    image: quay.io/cloudwalker/alp.base
+    command: [\'sh\', \'-c\', \'echo The Pod is running && exit 1\']
+  restartPolicy: Never' > ~/myLifecyclePod-2.yaml
+```
+
+`kubectl get nodes --show-labels`
+NAME                STATUS   ROLES           AGE   VERSION   LABELS
+c30-control-plane   Ready    control-plane   13d   v1.30.0   app=taroko,beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,ingress-ready=true,kubernetes.io/arch=amd64,kubernetes.io/hostname=c30-control-plane,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=,node.kubernetes.io/exclude-from-external-load-balancers=
+c30-worker          Ready    <none>          13d   v1.30.0   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disktype=ssd,kubernetes.io/arch=amd64,kubernetes.io/hostname=c30-worker,kubernetes.io/os=linux
+c30-worker2         Ready    <none>          13d   v1.30.0   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disk=spinning,kubernetes.io/arch=amd64,kubernetes.io/hostname=c30-worker2,kubernetes.io/os=linux
+```
+echo 'apiVersion: v1
+kind: Pod
+metadata:
+  name: pton
+spec:
+  containers:
+  - name: pton
+    image: quay.io/cloudwalker/alp.base
+    imagePullPolicy: Never
+    tty: true
+  nodeSelector:
+    disktype: ssd '> ~/nodeselect.yaml
+```
+
+
+cat kind/bin/kto
+image的備份檔透過kind部署到所有的node上
+```
+      sudo kind load image-archive ~/kindimg/flannel:v0.21.3.tar --name $1 &>/dev/null
+```
+
+
+
+kubectl run nginx-kusc00401 --image=nginx --dry-run=client -o yaml > nginx-kusc00401.yaml
+$ ls
+auth.json  canal.yaml  kind     metrics.yaml           myLifecyclePod-2.yaml  nodeselect.yaml
+bin        cni         kindimg  myLifecyclePod-1.yaml  nginx-kusc00401.yaml
+$ vi nginx-kusc00401.yaml
+```
+  nodeSelector:
+    disk: spinning
+```
+$ ka -f nginx-kusc00401.yaml
+pod/nginx-kusc00401 configured
+$ kg all -o wide
+NAME                  READY   STATUS    RESTARTS      AGE   IP            NODE          NOMINATED NODE   READINESS GATES
+pod/kucc8             2/2     Running   0             13d   10.244.1.11   c30-worker    <none>           <none>
+pod/myapp-pod         0/1     Error     0             70m   10.244.1.17   c30-worker    <none>           <none>
+pod/nginx-kusc00401   1/1     Running   0             13d   10.244.2.13   c30-worker2   <none>           <none>
+pod/pton              1/1     Running   0             22m   10.244.2.15   c30-worker2   <none>           <none>
+pod/sharepid          2/2     Running   2 (93m ago)   13d   10.244.1.10   c30-worker    <none>           <none>
+
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   13d   <none>
+
+
+
+$ kubectl taint nodes c30-control-plane node-role.kubernetes.io/control-plane:NoSchedule
+node/c30-control-plane tainted
+$ kubectl describe nodes | egrep "Taints:|Name:" | grep -A 1 c30-control-plane
+Name:               c30-control-plane
+Taints:             node-role.kubernetes.io/control-plane:NoSchedule
+```
+echo 'apiVersion: v1
+kind: Pod
+metadata:
+  name: podtt
+spec:
+  containers:
+  - name: podtt
+    image: quay.io/cloudwalker/alp.base
+    imagePullPolicy: IfNotPresent
+    tty: true
+  nodeSelector:
+    kubernetes.io/hostname: c30-control-plane '> ~/podtt.yaml
+```
+$ ka -f podtt.yaml
+pod/podtt created
+$ kg all -o wide
+NAME                  READY   STATUS    RESTARTS       AGE   IP            NODE          NOMINATED NODE   READINESS GATES
+pod/kucc8             2/2     Running   0              13d   10.244.1.11   c30-worker    <none>           <none>
+pod/myapp-pod         0/1     Error     0              96m   10.244.1.17   c30-worker    <none>           <none>
+pod/nginx-kusc00401   1/1     Running   0              13d   10.244.2.13   c30-worker2   <none>           <none>
+pod/podtt             0/1     Pending   0              3s    <none>        <none>        <none>           <none>
+pod/pton              1/1     Running   0              48m   10.244.2.15   c30-worker2   <none>           <none>
+pod/sharepid          2/2     Running   2 (118m ago)   13d   10.244.1.10   c30-worker    <none>           <none>
+
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   13d   <none>
+$ kd pod/podtt
+pod "podtt" deleted
+$ vi podtt.yaml
+```
+  tolerations:
+  - effect: NoSchedule
+    operator: Exists
+```
+狀態顯示為拉鏡像，因為指派在control-plane上，先前kind設定檔中推送鏡像的目標機為worker，所以control-plane上沒有鏡像。
+$ kg all -o wide
+NAME                  READY   STATUS              RESTARTS       AGE    IP            NODE                NOMINATED NODE   READINESS GATES
+pod/kucc8             2/2     Running             0              13d    10.244.1.11   c30-worker          <none>           <none>
+pod/myapp-pod         0/1     Error               0              101m   10.244.1.17   c30-worker          <none>           <none>
+pod/nginx-kusc00401   1/1     Running             0              13d    10.244.2.13   c30-worker2         <none>           <none>
+pod/podtt             0/1     ContainerCreating   0              29s    <none>        c30-control-plane   <none>           <none>
+pod/pton              1/1     Running             0              53m    10.244.2.15   c30-worker2         <none>           <none>
+pod/sharepid          2/2     Running             2 (124m ago)   13d    10.244.1.10   c30-worker          <none>           <none>
+
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   13d   <none>
+$ kg pods
+NAME              READY   STATUS    RESTARTS       AGE
+kucc8             2/2     Running   0              13d
+myapp-pod         0/1     Error     0              102m
+nginx-kusc00401   1/1     Running   0              13d
+podtt             1/1     Running   0              77s
+pton              1/1     Running   0              54m
+sharepid          2/2     Running   2 (125m ago)   13d
+
+
+
+$ kubectl get nodes | grep 'Ready'
+c30-control-plane   Ready    control-plane   13d   v1.30.0
+c30-worker          Ready    <none>          13d   v1.30.0
+c30-worker2         Ready    <none>          13d   v1.30.0
+$ kubectl describe nodes | grep 'NoSchedule'
+Taints:             node-role.kubernetes.io/control-plane:NoSchedule
+$ echo "2" > /opt/KUSC00402/kusc00402.txt
+
+
+修改configMap
+kubectl edit cm -n kube-system kubelet-config
