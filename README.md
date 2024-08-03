@@ -286,3 +286,267 @@ $ echo "2" > /opt/KUSC00402/kusc00402.txt
 
 修改configMap
 kubectl edit cm -n kube-system kubelet-config
+
+---
+### DNS
+$ kubectl -n kube-system get svc
+NAME             TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                  AGE
+dkreg            ClusterIP   10.101.231.189   <none>        5000/TCP                 13d
+kadm             ClusterIP   10.110.95.219    <none>        22100/TCP                13d
+kube-dns         ClusterIP   10.96.0.10       <none>        53/UDP,53/TCP,9153/TCP   14d
+metrics-server   ClusterIP   10.108.217.205   <none>        443/TCP                  14d
+
+$ kubectl -n kube-system get endpoints
+NAME             ENDPOINTS                                                  AGE
+dkreg            10.244.0.11:5000                                           14d
+kadm             10.244.0.11:22100                                          14d
+kube-dns         10.244.0.13:53,10.244.0.14:53,10.244.0.13:53 + 3 more...   14d
+metrics-server   10.244.2.12:10250                                          14d
+
+$ kubectl get pods -n kube-system -o wide
+NAME                                        READY   STATUS    RESTARTS        AGE   IP            NODE                NOMINATED NODE   READINESS GATES
+calico-kube-controllers-ddf655445-fdjk7     1/1     Running   1 (4h17m ago)   14d   10.244.0.17   c30-control-plane   <none>           <none>
+canal-77qg4                                 1/2     Running   2 (4h17m ago)   14d   10.89.0.2     c30-control-plane   <none>           <none>
+canal-hqvc8                                 1/2     Running   2 (4h17m ago)   14d   10.89.0.3     c30-worker2         <none>           <none>
+canal-lh9zf                                 1/2     Running   2 (4h17m ago)   14d   10.89.0.4     c30-worker          <none>           <none>
+coredns-7db6d8ff4d-sch2j                    1/1     Running   1 (4h17m ago)   14d   10.244.0.13   c30-control-plane   <none>           <none>
+coredns-7db6d8ff4d-whfdt                    1/1     Running   1 (4h17m ago)   14d   10.244.0.14   c30-control-plane   <none>           <none>
+etcd-c30-control-plane                      1/1     Running   1 (4h17m ago)   14d   10.89.0.2     c30-control-plane   <none>           <none>
+kube-apiserver-c30-control-plane            1/1     Running   1 (4h17m ago)   14d   10.89.0.2     c30-control-plane   <none>           <none>
+kube-controller-manager-c30-control-plane   1/1     Running   1 (4h17m ago)   14d   10.89.0.2     c30-control-plane   <none>           <none>
+kube-kadm                                   2/2     Running   2 (4h17m ago)   14d   10.244.0.11   c30-control-plane   <none>           <none>
+kube-proxy-ddh5p                            1/1     Running   1 (4h17m ago)   14d   10.89.0.2     c30-control-plane   <none>           <none>
+kube-proxy-jhmjx                            1/1     Running   1 (4h17m ago)   14d   10.89.0.3     c30-worker2         <none>           <none>
+kube-proxy-l9c75                            1/1     Running   1 (4h17m ago)   14d   10.89.0.4     c30-worker          <none>           <none>
+kube-scheduler-c30-control-plane            1/1     Running   1 (4h17m ago)   14d   10.89.0.2     c30-control-plane   <none>           <none>
+metrics-server-d994c478f-xshzs              1/1     Running   3 (4h15m ago)   14d   10.244.2.12   c30-worker2         <none>           <none>
+
+$ kg svc kube-dns -n kube-system --show-labels
+NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE   LABELS
+kube-dns   ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   14d   k8s-app=kube-dns,kubernetes.io/cluster-service=true,kubernetes.io/name=CoreDNS
+服務的dns系統靠這個標籤去定位到下面的pod
+k8s叢集重開，服務的IP位置不會換
+$ kg pods coredns-7db6d8ff4d-sch2j -n kube-system --show-labels
+NAME                       READY   STATUS    RESTARTS        AGE   LABELS
+coredns-7db6d8ff4d-sch2j   1/1     Running   1 (4h35m ago)   14d   k8s-app=kube-dns,pod-template-hash=7db6d8ff4d
+$ kg pods coredns-7db6d8ff4d-whfdt -n kube-system --show-labels
+NAME                       READY   STATUS    RESTARTS        AGE   LABELS
+coredns-7db6d8ff4d-whfdt   1/1     Running   1 (4h35m ago)   14d   k8s-app=kube-dns,pod-template-hash=7db6d8ff4d
+
+$ env
+KUBERNETES_SERVICE_PORT=443
+MAIL=/var/mail/bigred
+USER=bigred
+SSH_CLIENT=120.96.143.193 53862 22100
+SHLVL=1
+HOME=/home/bigred
+SSH_TTY=/dev/pts/1
+PAGER=less
+PS1=\u@\h:\w$
+NOW=--force --grace-period 0
+LOGNAME=bigred
+KUBE_EDITOR=nano
+TERM=xterm-256color
+LC_COLLATE=C
+PATH=/home/bigred/wulin/wk/usdt/bin:/home/bigred/wulin/bin:/home/bigred/.krew/bin:/home/bigred/wulin/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+LANG=C.UTF-8
+SHELL=/bin/ash
+KUBERNETES_SERVICE_PORT_HTTPS=443
+POD_NAMESPACE=default
+PWD=/home/bigred
+KUBERNETES_SERVICE_HOST=kubernetes.default
+SSH_CONNECTION=120.96.143.193 53862 10.244.0.11 22100
+CHARSET=UTF-8
+TZ=Asia/Taipei
+
+
+$ kg svc kubernetes -n default --show-labels
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE   LABELS
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   14d   component=apiserver,provider=kubernetes
+$ kubectl -n default get svc
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   14d
+$ kubectl describe svc
+Name:              kubernetes
+Namespace:         default
+Labels:            component=apiserver
+                   provider=kubernetes
+Annotations:       <none>
+Selector:          <none>
+Type:              ClusterIP
+IP Family Policy:  SingleStack
+IP Families:       IPv4
+IP:                10.96.0.1
+IPs:               10.96.0.1
+Port:              https  443/TCP
+TargetPort:        6443/TCP
+Endpoints:         10.89.0.2:6443
+Session Affinity:  None
+Events:            <none>
+
+
+$ nslookup
+> server 10.96.0.10
+Default server: 10.96.0.10
+Address: 10.96.0.10#53
+> kubernetes.default.svc.k1.org
+Server:         10.96.0.10
+Address:        10.96.0.10#53
+
+Name:   kubernetes.default.svc.k1.org
+Address: 10.96.0.1
+> dkreg.kube-system.svc.k1.org
+Server:         10.96.0.10
+Address:        10.96.0.10#53
+
+Name:   dkreg.kube-system.svc.k1.org
+Address: 10.101.231.189
+> server 8.8.8.8
+Default server: 8.8.8.8
+Address: 8.8.8.8#53
+> dkreg.kube-system.svc.k1.org
+Server:         8.8.8.8
+Address:        8.8.8.8#53
+
+Non-authoritative answer:
+Name:   dkreg.kube-system.svc.k1.org.kube-system.svc.k1.org
+Address: 13.248.169.48
+Name:   dkreg.kube-system.svc.k1.org.kube-system.svc.k1.org
+Address: 76.223.54.146
+> dkreg.kube-system.svc.k1.org.
+Server:         8.8.8.8
+Address:        8.8.8.8#53
+
+Non-authoritative answer:
+Name:   dkreg.kube-system.svc.k1.org
+Address: 76.223.54.146
+Name:   dkreg.kube-system.svc.k1.org
+Address: 13.248.169.48
+
+> set type=ns
+> ibm.com.
+Server:         8.8.8.8
+Address:        8.8.8.8#53
+
+Non-authoritative answer:
+ibm.com nameserver = usw2.akam.net.
+ibm.com nameserver = eur5.akam.net.
+ibm.com nameserver = usc2.akam.net.
+ibm.com nameserver = eur2.akam.net.
+ibm.com nameserver = ns1-206.akam.net.
+ibm.com nameserver = asia3.akam.net.
+ibm.com nameserver = ns1-99.akam.net.
+ibm.com nameserver = usc3.akam.net.
+
+Authoritative answers can be found from:
+> ntu.edu.tw.
+Server:         8.8.8.8
+Address:        8.8.8.8#53
+
+Non-authoritative answer:
+ntu.edu.tw      nameserver = ntu3.ntu.edu.tw.
+ntu.edu.tw      nameserver = dns.ntu.edu.tw.
+ntu.edu.tw      nameserver = dns.tp1rc.edu.tw.
+
+Authoritative answers can be found from:
+
+
+
+$ ls wulin/images/sshd/
+Dockerfile
+bigred@kube-kadm:~$ cat wulin/images/sshd/Dockerfile
+ARG VER=0.0
+FROM quay.io/cloudwalker/alp.base
+RUN apk update && apk upgrade && \
+    apk add --no-cache openssh-server tzdata && \
+    # 設定時區
+    cp /usr/share/zoneinfo/Asia/Taipei /etc/localtime && \
+    ssh-keygen -t rsa -P "" -f /etc/ssh/ssh_host_rsa_key && \
+    echo -e 'Welcome to ALP SSHd 6000\n' > /etc/motd && \
+    # 建立管理者帳號 bigred
+    adduser -s /bin/bash -h /home/bigred -G wheel -D bigred && \
+    echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
+    echo -e 'bigred\nbigred\n' | passwd bigred &>/dev/null && \
+    rm /sbin/reboot && rm /usr/bin/killall
+
+EXPOSE 22
+
+ENTRYPOINT ["/usr/sbin/sshd"]
+CMD ["-D"]
+bigred@kube-kadm:~$ sudo podman build --tls-verify=false --format=docker --no-cache --force-rm --squash -t dkreg.kube-system:5000/alp.sshd:24.01 wulin/images/sshd/
+STEP 1/5: FROM quay.io/cloudwalker/alp.base
+Trying to pull quay.io/cloudwalker/alp.base:latest...
+Getting image source signatures
+Copying blob 19934a922dcd done   |
+Copying config ed3b7bfb38 done   |
+Writing manifest to image destination
+STEP 2/5: RUN apk update && apk upgrade &&     apk add --no-cache openssh-server tzdata &&     cp /usr/share/zoneinfo/Asia/Taipei /etc/localtime &&     ssh-keygen -t rsa -P "" -f /etc/ssh/ssh_host_rsa_key &&     echo -e 'Welcome to ALP SSHd 6000\n' > /etc/motd &&     adduser -s /bin/bash -h /home/bigred -G wheel -D bigred &&     echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers &&     echo -e 'bigred\nbigred\n' | passwd bigred &>/dev/null &&     rm /sbin/reboot && rm /usr/bin/killall
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/APKINDEX.tar.gz
+v3.20.2-45-g194e307d75d [https://dl-cdn.alpinelinux.org/alpine/v3.20/main]
+v3.20.2-58-g730bd64fe94 [https://dl-cdn.alpinelinux.org/alpine/v3.20/community]
+OK: 24156 distinct packages available
+OK: 554 MiB in 161 packages
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/APKINDEX.tar.gz
+(1/3) Installing openssh-server-common (9.7_p1-r4)
+(2/3) Installing openssh-server (9.7_p1-r4)
+(3/3) Installing tzdata (2024a-r1)
+Executing busybox-1.36.1-r29.trigger
+OK: 556 MiB in 164 packages
+Generating public/private rsa key pair.
+Your identification has been saved in /etc/ssh/ssh_host_rsa_key
+Your public key has been saved in /etc/ssh/ssh_host_rsa_key.pub
+The key fingerprint is:
+SHA256:TsycLDORezJXdmQje4VxT1C7UIkXW1ZZajuugr3OJjs root@kube-kadm
+The key's randomart image is:
++---[RSA 3072]----+
+|          . =o==&|
+|       .   =.=.O+|
+|      o   + o.+o.|
+|       B + o ....|
+|      B S     o. |
+|       @     . . |
+|        .o    .  |
+|        E.+  .   |
+|        .*+o.    |
++----[SHA256]-----+
+STEP 3/5: EXPOSE 22
+STEP 4/5: ENTRYPOINT ["/usr/sbin/sshd"]
+STEP 5/5: CMD ["-D"]
+COMMIT dkreg.kube-system:5000/alp.sshd:24.01
+--> 48b6c9a1acf2
+Successfully tagged dkreg.kube-system:5000/alp.sshd:24.01
+48b6c9a1acf2fabca57eed87bf09a722b2677a1e1d29319730edc58052b43845
+bigred@kube-kadm:~$ docker images
+REPOSITORY                       TAG         IMAGE ID      CREATED         SIZE
+dkreg.kube-system:5000/alp.sshd  24.01       48b6c9a1acf2  15 seconds ago  782 MB
+quay.io/cloudwalker/alp.base     latest      ed3b7bfb3887  46 hours ago    778 MB
+
+
+
+$ sudo podman push --tls-verify=false --creds=bigred:bigred dkreg.kube-system:5000/alp.sshd:24.01
+Getting image source signatures
+Copying blob a8a0fa710f76 done   |
+Copying blob 10d4de6521e0 done   |
+Copying config 48b6c9a1ac done   |
+Writing manifest to image destination
+
+$ kubectl run g1 --image=dkreg.kube-system:5000/alp.sshd:24.01 --image-pull-policy=Always --port=22 -l="app=g1"
+pod/g1 created
+$ kubectl create service clusterip g1 --tcp=22101:22
+service/g1 created
+$ kg all
+NAME           READY   STATUS    RESTARTS        AGE
+pod/g1         1/1     Running   0               4s
+pod/sharepid   2/2     Running   2 (6h30m ago)   14d
+
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)     AGE
+service/g1           ClusterIP   10.99.126.115   <none>        22101/TCP   3m5s
+service/kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP     14d
+$ ssh bigred@g1.default -p 22101
+Warning: Permanently added '[g1.default]:22101' (RSA) to the list of known hosts.
+bigred@g1.default's password:
+Welcome to ALP SSHd 6000
+
+g1:~$
