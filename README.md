@@ -550,3 +550,321 @@ bigred@g1.default's password:
 Welcome to ALP SSHd 6000
 
 g1:~$
+
+
+C:\Users\rbean>ssh bigred@192.168.61.141 -p 22100
+The authenticity of host '[192.168.61.141]:22100 ([192.168.61.141]:22100)' can't be established.
+RSA key fingerprint is SHA256:LgeZDi+EaEPZy3L4CMUpZ5VM0jq3vqN82ls6IC+WJwE.
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '[192.168.61.141]:22100' (RSA) to the list of known hosts.
+bigred@192.168.61.141's password:
+Welcome to Taroko Kadm Console v24.07 (task,kubectl,talosctl,mc,rclone,s3fs,JuiceFS Client)
+
+
+bigred@kube-kadm:~$ dir wulin
+total 36K
+drwxr-sr-x  8 bigred  1000 4.0K Aug  9 19:58 .
+drwxr-sr-x  1 bigred wheel 4.0K Aug 10 11:17 ..
+drwxr-sr-x  2 bigred  1000 4.0K Jul 21 14:44 bin
+drwxr-sr-x  4 bigred  1000 4.0K Aug  9 19:58 c30-dtbak
+drwxr-sr-x  4 bigred  1000 4.0K Aug  9 19:58 c30-kadmbak
+drwxr-sr-x 16 bigred  1000 4.0K Jul 19 00:06 images
+drwxr-sr-x 15 bigred  1000 4.0K Jul 22 20:07 wk
+drwxr-sr-x  2 bigred  1000 4.0K Jul 19 14:36 yaml
+bigred@kube-kadm:~$ ls wulin/
+bin  c30-dtbak  c30-kadmbak  images  wk  yaml
+bigred@kube-kadm:~$ ls wulin/bin
+clusterbind.yaml  clusterole.yaml  kau  kdu  kip  klu  rmpod  role.yaml  rolebind.yaml  sa.yaml  system.sh
+bigred@kube-kadm:~$ vim wulin/bin/kau
+-ash: vim: not found
+bigred@kube-kadm:~$ vi wulin/bin/kau
+bigred@kube-kadm:~$ dir wulin/wk
+total 60K
+drwxr-sr-x 15 bigred 1000 4.0K Jul 22 20:07 .
+drwxr-sr-x  8 bigred 1000 4.0K Aug  9 19:58 ..
+drwxr-sr-x  2 bigred 1000 4.0K Jul 21 14:02 containerd
+drwxr-sr-x  2 bigred 1000 4.0K Jul 18 20:20 crio
+drwxr-sr-x  2 bigred 1000 4.0K Jun 19 20:56 derby
+drwxr-sr-x  5 bigred 1000 4.0K Aug  8 21:35 dt
+drwxr-sr-x  2 bigred 1000 4.0K Jun 26 08:30 fbs
+drwxr-sr-x  2 bigred 1000 4.0K Jul 17 15:43 ingress
+drwxr-sr-x  2 bigred 1000 4.0K Jun 16 22:25 juicefs
+drwxr-sr-x  2 bigred 1000 4.0K Jul  4 11:57 kadm
+drwxr-sr-x  2 bigred 1000 4.0K Jun 17 22:29 mariadb
+drwxr-sr-x  2 bigred 1000 4.0K Jun 25 08:02 minio
+drwxr-sr-x  2 bigred 1000 4.0K Jun 17 22:41 mlb
+drwxr-sr-x  2 bigred 1000 4.0K Jun 26 17:15 mysql
+drwxr-sr-x  2 bigred 1000 4.0K Jun 16 21:33 redis
+bigred@kube-kadm:~$ cat wulin/wk/kadm/kube-kadm-dkreg.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kadm
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kadm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+- kind: ServiceAccount
+  name: kadm
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kadm
+  namespace: kube-system
+spec:
+  selector:
+    app: kadm
+  ports:
+    - protocol: TCP
+      port: 22100
+      targetPort: 22100
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dkreg
+  namespace: kube-system
+spec:
+  selector:
+    app: kadm
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kube-kadm
+  namespace: kube-system
+  labels:
+    app: kadm
+spec:
+  dnsConfig:
+    nameservers:
+    - 10.98.0.10
+    searches:
+    - kube-system.svc.k1.org
+    - svc-dt.dt.svc.k1.org
+    - svc.k1.org
+  volumes:
+  - name: dkreg-storage
+    hostPath:
+      path: /opt/dkreg
+  - name: podman-storage
+    hostPath:
+      path: /opt/podman
+  - name: wulin-storage
+    hostPath:
+      path: /opt/wulin
+#  - name: dt-storage
+#    hostPath:
+#      path: /opt/dt/sys
+#  - name: kadm-storage
+#    persistentVolumeClaim:
+#       claimName: pvc-kadm
+  serviceAccountName: kadm
+  containers:
+  - name: kadm
+    image: quay.io/cloudwalker/alp.kadm
+    imagePullPolicy: Always
+    tty: true
+    ports:
+    - containerPort: 22100
+      hostPort: 22100
+    lifecycle:
+      postStart:
+        exec:
+          command:
+            - /bin/bash
+            - -c
+            - |
+              cp -p /var/tmp/htpasswd /opt/dkreg
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: dkreg-storage
+      mountPath: /opt/dkreg
+    - name: podman-storage
+      mountPath: /var/lib/containers/storage
+    - name: wulin-storage
+      mountPath: /home/bigred/wulin
+#      mountPropagation: Bidirectional
+    env:
+    - name: KUBERNETES_SERVICE_HOST
+      value: "kubernetes.default"
+    - name: KUBERNETES_SERVICE_PORT_HTTPS
+      value: "443"
+    - name: KUBERNETES_SERVICE_PORT
+      value: "443"
+    securityContext:
+      privileged: true
+  - image: quay.io/cloudwalker/registry:2
+    name: dkreg
+    ports:
+    - containerPort: 5000
+      hostPort: 5000
+    volumeMounts:
+    - mountPath: "/var/lib/registry"
+      name: dkreg-storage
+    env:
+    - name: REGISTRY_AUTH
+      value: "htpasswd"
+    - name: REGISTRY_AUTH_HTPASSWD_PATH
+      value: "/var/lib/registry/htpasswd"
+    - name: REGISTRY_AUTH_HTPASSWD_REALM
+      value: "Registry Realm"
+    - name: REGISTRY_STORAGE_DELETE_ENABLED
+      value: "true"
+  nodeSelector:
+    app: taroko
+bigred@kube-kadm:~$ vi wulin/wk/kadm/kube-kadm-dkreg.yaml
+bigred@kube-kadm:~$ sudo podman build --tls-verify=false --format=docker
+--force-rm --squash -t
+dkreg.kube-system:5000/alp.sshd:24.01
+~/wulin/images/sshd/--no-cache --force-rm --squash -t
+dkreg.kube-system:5000/alp.sshd:24.01
+~/wulin/images/sshd/Error: no context directory and no Containerfile specified
+bigred@kube-kadm:~$ sudo podman build --tls-verify=false --format=docker --no-cache --force-rm --squash -t dkreg.kube-sy
+stem:5000/alp.sshd:24.01 ~/wulin/images/sshd/
+STEP 1/5: FROM quay.io/cloudwalker/alp.base
+Trying to pull quay.io/cloudwalker/alp.base:latest...
+Getting image source signatures
+Copying blob 1695600ec709 done   |
+Copying config 37c2fd1f36 done   |
+Writing manifest to image destination
+STEP 2/5: RUN apk update && apk upgrade &&     apk add --no-cache openssh-server tzdata &&     cp /usr/share/zoneinfo/Asia/Taipei /etc/localtime &&     ssh-keygen -t rsa -P "" -f /etc/ssh/ssh_host_rsa_key &&     echo "Port 22101" >> /etc/ssh/sshd_config &&     echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config &&     echo 'PermitUserEnvironment yes' >> /etc/ssh/sshd_config &&     echo 'StrictHostKeyChecking no' >> /etc/ssh/ssh_config &&     echo -e 'Welcome to GitOps 6000\n' > /etc/motd &&     adduser -s /bin/ash -h /home/bigred -G wheel -D bigred &&     echo "%wheel ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers &&     echo -e 'bigred\nbigred\n' | passwd bigred &>/dev/null &&     mkdir -p /home/bigred/wulin && chown bigred:wheel /home/bigred/wulin &&     echo "export ENV=/usr/bin/ash.rc" >> /etc/profile &&     rm /sbin/reboot && rm /usr/bin/killall
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/APKINDEX.tar.gz
+v3.20.2-73-g96fd11cea2a [https://dl-cdn.alpinelinux.org/alpine/v3.20/main]
+v3.20.2-79-gbdcfa560d54 [https://dl-cdn.alpinelinux.org/alpine/v3.20/community]
+OK: 24157 distinct packages available
+(1/1) Upgrading xz-libs (5.6.1-r3 -> 5.6.2-r0)
+OK: 554 MiB in 161 packages
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/main/x86_64/APKINDEX.tar.gz
+fetch https://dl-cdn.alpinelinux.org/alpine/v3.20/community/x86_64/APKINDEX.tar.gz
+(1/3) Installing openssh-server-common (9.7_p1-r4)
+(2/3) Installing openssh-server (9.7_p1-r4)
+(3/3) Installing tzdata (2024a-r1)
+Executing busybox-1.36.1-r29.trigger
+OK: 556 MiB in 164 packages
+Generating public/private rsa key pair.
+Your identification has been saved in /etc/ssh/ssh_host_rsa_key
+Your public key has been saved in /etc/ssh/ssh_host_rsa_key.pub
+The key fingerprint is:
+SHA256:fBf4FPUhnUfMy+qbCGiDXvmy5pJI3mPvwcAMvmuDdgw root@kube-kadm
+The key's randomart image is:
++---[RSA 3072]----+
+|            .oo=o|
+|           . ..+=|
+|   .      . o . +|
+|  . +  .   o . o |
+|   . +  S . o .  |
+| E .. + o. . .   |
+|  *.o..O .  .    |
+| o Bo*oo+ . ...  |
+|. o.o.B=o. . o.  |
++----[SHA256]-----+
+STEP 3/5: EXPOSE 22101
+STEP 4/5: ENTRYPOINT ["/usr/sbin/sshd"]
+STEP 5/5: CMD ["-D"]
+COMMIT dkreg.kube-system:5000/alp.sshd:24.01
+--> 7ff1e3a034ff
+Successfully tagged dkreg.kube-system:5000/alp.sshd:24.01
+7ff1e3a034ffdd744267bd44098512bc9cb9073d1401ec1c5d26d24bda0c60f4
+bigred@kube-kadm:~$ sudo podman push --tls-verify=false --creds=bigred:bigred dkreg.kube-system:5000/alp.sshd:24.01
+Getting image source signatures
+Copying blob 4893496f040e done   |
+Copying blob 3beb57c515db done   |
+Copying config 7ff1e3a034 done   |
+Writing manifest to image destination
+bigred@kube-kadm:~$ dkimg
+"alp.sshd"
+bigred@kube-kadm:~$ kubectl run g1 --image=dkreg.kube-system:5000/alp.sshd:24.01 --image-pull-policy=Always --port=22101
+ -l="app=g1"
+pod/g1 created
+bigred@kube-kadm:~$ kubectl get pods
+NAME   READY   STATUS    RESTARTS   AGE
+g1     1/1     Running   0          20s
+bigred@kube-kadm:~$ kubectl get pods -o wide
+NAME   READY   STATUS    RESTARTS   AGE     IP            NODE          NOMINATED NODE   READINESS GATES
+g1     1/1     Running   0          3m58s   10.244.1.17   c30-worker2   <none>           <none>
+bigred@kube-kadm:~$ ssh bigred@g1.default -p 22101
+bigred@kube-kadm:~$ ssh bigred@10.244.1.17 -p 22101
+bigred@10.244.1.17's password:
+Welcome to GitOps 6000
+
+bigred@g1:~$ exit
+bigred@kube-kadm:~$ kubectl get svc
+NAME         TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.98.0.1    <none>        443/TCP   26h
+bigred@kube-kadm:~$ kubectl create service clusterip g1 --tcp=22101:22101
+service/g1 created
+bigred@kube-kadm:~$ kubectl get svc
+NAME         TYPE        CLUSTER-IP    EXTERNAL-IP   PORT(S)     AGE
+g1           ClusterIP   10.98.0.229   <none>        22101/TCP   3s
+kubernetes   ClusterIP   10.98.0.1     <none>        443/TCP     26h
+bigred@kube-kadm:~$ ssh bigred@g1.default -p 22101
+bigred@g1.default's password:
+Welcome to GitOps 6000
+
+bigred@g1:~$ exit
+
+```
+[]bigred@M109:~$ docker exec -ti c30-worker2 bash
+echo "10.98.0.229 g1.default.svc.k1.org" >> /etc/hosts
+```
+
+
+
+bigred@kube-kadm:~$ kubectl create service loadbalancer g1 --tcp=22101:22101
+service/g1 created
+bigred@kube-kadm:~$ kg all
+NAME     READY   STATUS    RESTARTS   AGE
+pod/g1   1/1     Running   0          81m
+
+NAME                 TYPE           CLUSTER-IP    EXTERNAL-IP   PORT(S)           AGE
+service/g1           LoadBalancer   10.98.0.114   10.89.0.101   22101:31884/TCP   6s
+service/kubernetes   ClusterIP      10.98.0.1     <none>        443/TCP           27h
+
+
+[]bigred@M109:~$ ssh 10.89.0.101 -p 22101
+Warning: Permanently added '[10.89.0.101]:22101' (RSA) to the list of known hosts.
+bigred@10.89.0.101's password:
+Welcome to GitOps 6000
+
+bigred@g1:~$ exit
+Connection to 10.89.0.101 closed.
+[]bigred@M109:~$ ssh 10.89.0.101 -p 31884
+ssh: connect to host 10.89.0.101 port 31884: Connection refused
+
+
+$ alias
+nano='nano -Ynone'
+ka='kubectl apply'
+kd='kubectl delete'
+dir='ls -alh'
+docker='sudo /usr/bin/podman'
+kg='kubectl get'
+kk='kubectl krew'
+pingdup='sudo arping -D -I eth0 -c 2 '
+dkimg='curl -X GET -s -u bigred:bigred http://dkreg.kube-system:5000/v2/_catalog | jq ".repositories[]"'
+kp='kubectl get pods -o wide -A | sed '"'"'s/(.*)//'"'"' | tr -s '"'"' '"'"' | cut -d '"'"' '"'"' -f 1-4,7,8 | column -t'
+ks='kubectl get all -n kube-system'
+kt='kubectl top'
+ssh='ssh -q'
+kgip='kubectl get pod --template '"'"'{{.status.podIP}}'"'"
+ping='ping -c 4'
+
+
+
+$ kubectl expose deployment front-end --port=80 --target-port=http --type=NodePort --name=front-end-svc
