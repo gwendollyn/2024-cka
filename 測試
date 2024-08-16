@@ -1,0 +1,158 @@
+C27
+- Pod Logs (5%)
+Monitor the logs of pod bar and:
+1. Extract log lines corresponding to error unable-to-access-website
+2. Write them to /opt/KUTR00101/bar
+
+- Check Ready Node (4%)
+Check to see how many nodes are ready (not including nodes tainted NoSchedule) and write the number to /opt/KUSC00402/kusc00402.txt
+
+- NodeSelector (4%)
+Schedule a pod as follows:
+1. name: nginx-kusc00401
+2. Image: nginx
+3. Node selector: disk=spinning
+
+- CPU (5%) 
+From the pod label name=cpu-loader, find pods running high CPU workloads and write the name of the pod consuming most CPU to the file /opt/KUTR00401/KURT00401.txt 
+(while already exists).
+
+- Multi-container (4%)
+1. 題型 1 :
+Create a pod named kucc8 with a single app container for each of the following images running inside(there may be between 1 and 2 images specified): nginx + memcached
+
+2. 題型 2:
+Create a pod named kucc1 with a single app container for each of the following images running inside(there may be between 1 and 4 images specified): nginx + redis + memcached + consul
+
+
+- Sidecar (7%)
+Context
+Without changing its existing containers, an existing Pod needs to be integrated into Kubernetes’s build-in logging architecture  (e.g kubectl logs). Adding a streaming sidecar container is a good and common way to accomplish this requirement.
+
+Task
+Add a busybox sidecar container to the existing Pod big-corp-app. The new sidecar container has to run the following command:
+/bin/sh -c tail -n+1 -f /var/log/big-corp-app.log
+
+- Sidecar (7%)
+Use a volume mount named logs to make the file `/var/log/big-corp-app.log` available to the sidecar container.
+
+Don’t modify the existing container.
+Don’t modify the path of the log file, both containers must access it at `/var/log/bin-corp-app.log`
+
+- Deployment 應用 - Scale (4%)
+題型 1：Scale the deployment presentation to 3 pods
+
+題型 2：Scale the deployment loadbalancer to 6 pods
+
+- cordon & drain (4%)
+Set the node named ek8s-node-1 as unavailable and reschedule all pods running on it.
+
+- Service (7%)
+Reconfigure the existing deployment front-end and add a port specification named http exposing port 80/tcp of the existing container nginx.
+
+Create a new service named front-end-svc exposing the container port http.
+
+Configure the new service to also expose the individual Pods via a NodePort on the nodes on which they are scheduled.
+
+- Ingress (7%)
+Create a new nginx Ingress resources as follows:
+
+Name: ping
+Namespace: ing-internal
+Exposing service hi on path /hi using service port 5678
+
+The availability of service hi can be checked using the following command, which should return hi:
+curl -kL <INTERNAL_IP>/hi
+
+
+- Storage PV (7%)
+題型 1:
+Create a persistent volume with name app-config, of capacity 1Gi and access mode ReadOnlyMany, the type of volume is hostPath and its location is /svc/app-config.
+
+題型 2：
+Create a persistent volume with name app-config, of capacity 2Gi and access mode ReadWriteMany, the type of volume is hostPath and its location is /srv/app-config. 
+
+
+- Storage PVC (7%)
+Create a new PersistentVolumeClaim:
+Name: pv-volume
+Class: csi-hostpath-sc
+Capacity: 10Mi
+
+Create a new Pod which mounts the PersistentVolumeClaim as a volume:
+Name: web-server
+Image: nginx
+Mount Path: /usr/share/nginx/html
+
+Configure the new Pod to have ReadWriteOnce access on the volume.
+Finally, using kubectl edit or kubectl patch expand the PersistentVolumeClaim to a capacity of 70Mi and record that change. 
+
+
+- RBAC (Role-based Access Control) (4%)
+Context
+You have been asked to create a new ClusterRole for a deployment pipeline and bind it to a specific ServiceAccount scoped a specific namespace.
+
+Task
+Create a new ClusterRole named deployment-clusterrole that only allows the creation of the following resource types:
+Deployment
+StatefulSet
+DaemonSet
+
+Create a new ServiceAccount named cicd-token in the existing namespace app-team1.
+
+Limited to namespace app-team1, bind the new ClusterRole deployment-clusterrole to the new ServiceAccount cicd-token.
+
+
+- 1. NetworkPolicy (7%)
+Create a new NetworkPolicy named allow-port-from-namespace in the existing namespace echo. 
+Ensure that the new NetworkPolicy allows Pods in namespace my-app to connect to port 9000 of Pods in namespace echo.
+
+Further ensure that the new NetworkPolicy:
+
+• does not allow access to Pods, which don’t listen on port 9000
+• does not allow access from Pods, which are not in namespace my-app
+
+
+- 2. NetworkPolicy (7%)
+Create new NetworkPolicy named allow-port-from-namespace that allows Pods in the existing namespace internal to connect to port 9000 of other Pods in the same namespace.
+
+Ensure that the new NetworkPolicy:
+
+does not allow access to Pods not listening on port 9000
+does not allow access from Pods not in namespace internal
+
+C24
+- Trobleshooting - kubelet 故障 (13%)
+A Kubernetes worker node, named wk8s-node-0 is in state NotReady.
+Investigate why this is the case, and perform an appropriate steps to bring the node to a Ready stat, ensuring that any changes are made permanent.
+
+You can ssh to the failed node using:
+ssh wk8s-node-0
+You can assume elevated privileges on the node with the following command:
+sudo -i
+
+
+- Kubernetes 升級 (7%) 
+Given an existing Kubernetes cluster running version 1.24.1, upgrade all of Kubernetes control plane and node components on the master node only to version 1.24.2
+
+You are also expected to upgrade kubelet and kubectl on the master node.
+
+Be sure to drain the master node before upgrading it and uncordon it after the upgrade.
+Do not upgrade the worker nodes, etcd, the container manager, the CNI plugin, the DNS service or any other addons.
+
+
+- Etcd（7%）
+First, create a snapshot of the existing etcd instance running at https://127.0.0.1:2379, saving the snapshot to 
+/var/lib/backup/etcd-snapshot.db
+
+Creating a snapshot of the given instance is expected to complete in seconds.
+If the operation seems to hang, something’s likely wrong with your command. Use CTRL+C to cancel the operation and try again.
+
+
+- Etcd（7%）
+Next, restore an existing, previous snapshot located at /var/lib/backup/etcd-snapshot-previous.db
+
+The following TLS certificates/key are supplied for connecting to the server with etcdctl:
+CA certificate: /opt/KUIN0061/ca.crt
+Client certificate: /opt/KUIN0061/etcd-client.crt
+Client key: /opt/KUIN0061/etcd-client.key
